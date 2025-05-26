@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Prenotazioni Terapia</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; }
+  .slot { padding: 10px; border: 1px solid #444; margin: 5px 0; cursor: pointer; }
+  .slot.booked { background-color: #f88; cursor: not-allowed; }
+  .slot.selected { background-color: #8f8; }
+  #bookingForm { margin-top: 20px; display: none; }
+  label { display: block; margin-top: 10px; }
+  input[type="text"], input[type="date"] { width: 100%; padding: 5px; }
+  button { margin-top: 10px; padding: 10px 20px; }
+  #message { margin-top: 10px; }
+</style>
+</head>
+<body>
+
+<h1>Prenota la terapia</h1>
+<div id="slotsContainer"></div>
+
+<form id="bookingForm">
+  <h2>Dettagli bambino</h2>
+  <label>Nome bambino:<input type="text" id="childName" required /></label>
+  <label>Data di nascita:<input type="date" id="childDOB" required /></label>
+  <label>
+    <input type="checkbox" id="policyCheckbox" />
+    Accetto che in caso di mancata disdetta entro 24h verrà addebitata metà della terapia.
+  </label>
+  <button type="submit">Conferma prenotazione</button>
+</form>
+
+<div id="message"></div>
+
+<script>
+  // URL della tua Google Apps Script Web App
+  const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxjI25qwj9oJ9UuZPyASOz8QpD5HHSsJKtPl5K8N_1Ygz0DikRtwDbcxtUVFFxA5MUVSg/exec';
+
+  const slots = [
+    { id: 'slot1', date: '2025-06-07', time: '08:45-09:30', booked: false },
+    { id: 'slot2', date: '2025-06-07', time: '09:30-10:15', booked: false },
+    { id: 'slot3', date: '2025-06-07', time: '10:15-11:00', booked: false },
+    { id: 'slot4', date: '2025-06-07', time: '11:00-11:45', booked: false },
+    { id: 'slot5', date: '2025-06-07', time: '11:45-12:30', booked: false },
+    { id: 'slot6', date: '2025-06-07', time: '12:30-13:15', booked: false }
+  ];
+
+  const slotsContainer = document.getElementById('slotsContainer');
+  const bookingForm = document.getElementById('bookingForm');
+  const messageDiv = document.getElementById('message');
+
+  let selectedSlotId = null;
+
+  function renderSlots() {
+    slotsContainer.innerHTML = '';
+    slots.forEach(slot => {
+      const div = document.createElement('div');
+      div.className = 'slot' + (slot.booked ? ' booked' : '') + (slot.id === selectedSlotId ? ' selected' : '');
+      div.textContent = `${slot.date} - ${slot.time}`;
+      if (!slot.booked) {
+        div.addEventListener('click', () => {
+          selectedSlotId = slot.id;
+          renderSlots();
+          bookingForm.style.display = 'block';
+          messageDiv.textContent = '';
+        });
+      }
+      slotsContainer.appendChild(div);
+    });
+  }
+
+  bookingForm.addEventListener('submit', e => {
+    e.preventDefault();
+
+    const childName = document.getElementById('childName').value.trim();
+    const dob = document.getElementById('childDOB').value;
+    const policyChecked = document.getElementById('policyCheckbox').checked;
+
+    if (!childName || !dob || !policyChecked) {
+      messageDiv.style.color = 'red';
+      messageDiv.textContent = 'Per favore, completa tutti i campi e accetta la policy.';
+      return;
+    }
+
+    const slot = slots.find(s => s.id === selectedSlotId);
+    if (slot.booked) {
+      messageDiv.style.color = 'red';
+      messageDiv.textContent = 'Mi dispiace, questo slot è stato appena prenotato da un altro genitore.';
+      return;
+    }
+
+    const data = {
+      idSlot: slot.id,
+      date: slot.date,
+      time: slot.time,
+      childName: childName,
+      childDOB: dob
+    };
+
+    fetch(WEB_APP_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
+    }).then(() => {
+      slot.booked = true;
+      messageDiv.style.color = 'green';
+      messageDiv.textContent = `Prenotazione confermata per ${childName}, ${slot.date} - ${slot.time}`;
+      bookingForm.reset();
+      bookingForm.style.display = 'none';
+      selectedSlotId = null;
+      renderSlots();
+    }).catch(() => {
+      messageDiv.style.color = 'red';
+      messageDiv.textContent = 'Errore durante la prenotazione, riprova.';
+    });
+  });
+
+  renderSlots();
+</script>
+
+</body>
+</html>
+
